@@ -116,6 +116,7 @@ body { margin: 0; }
     .w-s-50 { width: 50%; }
     .w-s-75 { width: 75%; }
     .w-s-100 { width: 100%; }
+
 }
 
 @media (min-width: 768px){
@@ -136,14 +137,17 @@ body { margin: 0; }
     .w-m-50 { width: 50%; }
     .w-m-75 { width: 75%; }
     .w-m-100 { width: 100%; }
+
+    .container-cell {
+        width: 50%;
+        box-shadow: 1em 1em 1em gray;
+        margin-left: auto; 
+        margin-right: auto;
+    }
 }
 
 [class*="col-"] { float: left; }
 [class*="flex-"] { display: flex; }
-
-.shadow {
-    box-shadow: 1em 1em 1em gray;
-}
 
 .teal {
     background-color: teal;
