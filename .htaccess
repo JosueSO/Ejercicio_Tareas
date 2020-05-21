@@ -1,0 +1,13 @@
+php_flag display_errors on
+
+RewriteEngine On
+
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+
+#Categias
+RewriteRule ^categorias$ Controllers/categoriasController.php [L]
+
+#Tareas
+RewriteRule ^tareas$ Controllers/tareasController.php [L]
+RewriteRule ^tareas/categoria_id=([0-9]+)$ Controllers/tareasController.php?categoria_id=$1 [L]

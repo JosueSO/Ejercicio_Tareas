@@ -1,5 +1,7 @@
 <?php 
 
+class TareaException extends Exception {}
+
 class Tarea {
     private $_id;
     private $_titulo;
@@ -42,26 +44,44 @@ class Tarea {
     }
 
     public function setID($id) {
+        if ($id !== null && (!is_numeric($id) || $id <= 0 || $id >= 2147483647 || $this->_id !== null)) {
+            throw new TareaException("Error en ID de tarea");
+        }
         $this->_id = $id;
     }
 
     public function setTitulo($titulo) {
+        if ($titulo === null || strlen($titulo) > 50 || strlen($titulo) < 1) {
+            throw new TareaException("Error en título de tarea");
+        }
         $this->_titulo = $titulo;
     }
 
     public function setDescripcion($descripcion) {
+        if ($descripcion !== null && strlen($descripcion) > 150) {
+            throw new TareaException("Error en descripción de tarea");
+        }
         $this->_descripcion = $descripcion;
     }
 
     public function setFechaLimite($fecha_limite) {
+        if ($fecha_limite !== null && date_format(date_create_from_format('Y-m-d H:i', $fecha_limite), 'Y-m-d H:i') !== $fecha_limite) {
+            throw new TareaException("Error en fecha límite de tarea");
+        }
         $this->_fecha_limite = $fecha_limite;
     }
 
     public function setCompletada($completada) {
+        if (strtoupper($completada) !== 'SI' && strtoupper($completada) !== 'NO') {
+            throw new TareaException("Error en campo completada de tarea");
+        }
         $this->_completada = $completada;
     }
     
     public function setCategoriaID($categoria_id) {
+        if (!is_numeric($categoria_id) || $categoria_id <= 0 || $categoria_id >= 2147483647) {
+            throw new TareaException("Error en ID de categoria en tarea");
+        }
         $this->_categoria_id = $categoria_id;
     }
 
