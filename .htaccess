@@ -1,4 +1,4 @@
-php_flag display_errors on
+php_flag display_errors off
 
 RewriteEngine On
 
@@ -11,3 +11,4 @@ RewriteRule ^categorias$ Controllers/categoriasController.php [L]
 #Tareas
 RewriteRule ^tareas$ Controllers/tareasController.php [L]
 RewriteRule ^tareas/categoria_id=([0-9]+)$ Controllers/tareasController.php?categoria_id=$1 [L]
+RewriteRule ^tareas/([0-9]+)$ Controllers/tareasController.php?id_tarea=$1 [L]

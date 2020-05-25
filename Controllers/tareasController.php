@@ -88,6 +88,213 @@ if (array_key_exists("categoria_id", $_GET)) {
         exit();
     }
 }
+else if(array_key_exists("id_tarea", $_GET)){
+    $id_tarea = $_GET['id_tarea'];
+
+    if ($id_tarea == '' || !is_numeric($id_tarea)) {
+        $response = new Response();
+        $response->setHttpStatusCode(400);
+        $response->setSuccess(false);
+        $response->addMessage("El id de la tarea no puede estar vacío y debe ser numérico");
+        $response->send();
+        exit();
+    }
+
+    if($_SERVER['REQUEST_METHOD'] === 'PATCH'){
+        try {
+            if ($_SERVER['CONTENT_TYPE'] !== 'application/json'){
+                $response = new Response();
+                $response->setHttpStatusCode(400);
+                $response->setSuccess(false);
+                $response->addMessage('Encabezado "Content type" no es JSON');
+                $response->send();
+                exit();
+            }
+
+            $patchData = file_get_contents('php://input');
+
+            if (!$json_data = json_decode($patchData)) {
+                $response = new Response();
+                $response->setHttpStatusCode(400);
+                $response->setSuccess(false);
+                $response->addMessage('El cuerpo de la solicitud no es un JSON válido');
+                $response->send();
+                exit();
+            }
+
+            $actualiza_titulo = false;
+            $actualiza_descripcion = false;
+            $actualiza_fechaLimite = false;
+            $actualiza_completada = false;
+            $actualiza_categoriaId = false;
+
+            $campos_query = "";
+
+            if (isset($json_data->titulo)) {
+                $actualiza_titulo = true;
+                $campos_query .= "titulo = :titulo, ";
+            }
+
+            if (isset($json_data->descripcion)) {
+                $actualiza_descripcion = true;
+                $campos_query .= "descripcion = :descripcion, ";
+            }
+
+            if (isset($json_data->fecha_limite)) {
+                $actualiza_fechaLimite = true;
+                $campos_query .= 'fecha_limite = STR_TO_DATE(:fecha_limite, \'%Y-%m-%d %H:%i\'), ';
+            }
+
+            if (isset($json_data->completada)) {
+                $actualiza_completada = true;
+                $campos_query .= "completada = :completada, ";
+            }
+
+            if (isset($json_data->categoria_id)) {
+                $actualiza_categoriaId = true;
+                $campos_query .= "categoria_id = :categoria_id, ";
+            }
+
+            $campos_query = rtrim($campos_query, ", ");
+
+            if ($actualiza_titulo === false && $actualiza_descripcion === false && $actualiza_fechaLimite === false && $actualiza_completada === false && $actualiza_categoriaId === false) {
+                $response = new Response();
+                $response->setHttpStatusCode(400);
+                $response->setSuccess(false);
+                $response->addMessage("No hay campos para actualizar");
+                $response->send();
+                exit();
+            }
+
+            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE id = :id');
+            $query->bindParam(':id', $id_tarea, PDO::PARAM_INT);
+            $query->execute();
+
+            $rowCount = $query->rowCount();
+
+            if($rowCount === 0) {
+                $response = new Response();
+                $response->setHttpStatusCode(404);
+                $response->setSuccess(false);
+                $response->addMessage("No se encontró la tarea");
+                $response->send();
+                exit();
+            }
+
+            while($row = $query->fetch(PDO::FETCH_ASSOC)){
+                $tarea = new Tarea($row['id'], $row['titulo'], $row['descripcion'], $row['fecha_limite'], $row['completada'], $row['categoria_id']);
+            }
+
+            $cadena_query = 'UPDATE tareas SET ' . $campos_query . ' WHERE id = :id';
+            $query = $connection->prepare($cadena_query);
+
+            if($actualiza_titulo === true) {
+                $tarea->setTitulo($json_data->titulo);
+                $up_titulo = $tarea->getTitulo();
+                $query->bindParam(':titulo', $up_titulo, PDO::PARAM_STR);
+            }
+
+            if($actualiza_descripcion === true) {
+                $tarea->setDescripcion($json_data->descripcion);
+                $up_descripcion = $tarea->getDescripcion();
+                $query->bindParam(':descripcion', $up_descripcion, PDO::PARAM_STR);
+            }
+
+            if($actualiza_fechaLimite === true) {
+                $tarea->setFechaLimite($json_data->fecha_limite);
+                $up_fechaLimite = $tarea->getFechaLimite();
+                $query->bindParam(':fecha_limite', $up_fechaLimite, PDO::PARAM_STR);
+            }
+
+            if($actualiza_completada === true) {
+                $tarea->setCompletada($json_data->completada);
+                $up_completada = $tarea->getCompletada();
+                $query->bindParam(':completada', $up_completada, PDO::PARAM_STR);
+            }
+
+            if($actualiza_categoriaId === true) {
+                $tarea->setCategoriaID($json_data->categoria_id);
+                $up_categoriaID = $tarea->getCategoriaID();
+                $query->bindParam(':categoria_id', $up_categoriaID, PDO::PARAM_INT);
+            }
+
+            $query->bindParam(':id', $id_tarea, PDO::PARAM_INT);
+            $query->execute();
+
+            $rowCount = $query->rowCount();
+
+            if ($rowCount === 0) {
+                $response = new Response();
+                $response->setHttpStatusCode(500);
+                $response->setSuccess(false);
+                $response->addMessage("Error al actualizar la tarea");
+                $response->send();
+                exit();
+            }
+
+            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE id = :id');
+            $query->bindParam(':id', $id_tarea, PDO::PARAM_INT);
+            $query->execute();
+
+            $rowCount = $query->rowCount();
+
+            if($rowCount === 0) {
+                $response = new Response();
+                $response->setHttpStatusCode(404);
+                $response->setSuccess(false);
+                $response->addMessage("No se encontró la tarea después de actulizar");
+                $response->send();
+                exit();
+            }
+
+            $tareas = array();
+
+            while($row = $query->fetch(PDO::FETCH_ASSOC)){
+                $tarea = new Tarea($row['id'], $row['titulo'], $row['descripcion'], $row['fecha_limite'], $row['completada'], $row['categoria_id']);
+
+                $tareas[] = $tarea->getArray();
+            }
+
+            $returnData = array();
+            $returnData['total_registros'] = $rowCount;
+            $returnData['tareas'] = $tareas;
+
+            $response = new Response();
+            $response->setHttpStatusCode(200);
+            $response->setSuccess(true);
+            $response->addMessage("Tarea actualizada");
+            $response->setData($returnData);
+            $response->send();
+            exit();
+        }
+        catch(TareaException $e) {
+            $response = new Response();
+            $response->setHttpStatusCode(500);
+            $response->setSuccess(false);
+            $response->addMessage($e->getMessage());
+            $response->send();
+            exit();
+        }
+        catch(PDOException $e) {
+            error_log("Error en BD - " . $e);
+
+            $response = new Response();
+            $response->setHttpStatusCode(500);
+            $response->setSuccess(false);
+            $response->addMessage("Error en BD al actualizar la tarea");
+            $response->send();
+            exit();
+        }
+    }
+    else {
+        $response = new Response();
+        $response->setHttpStatusCode(405);
+        $response->setSuccess(false);
+        $response->addMessage("Método no permitido");
+        $response->send();
+        exit();
+    }
+}
 elseif (empty($_GET)) {
     //GET host/tareas
     if($_SERVER['REQUEST_METHOD'] === 'GET')
