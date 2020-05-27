@@ -1,4 +1,4 @@
-php_flag display_errors off
+php_flag display_errors on
 
 RewriteEngine On
 
@@ -15,3 +15,6 @@ RewriteRule ^tareas/([0-9]+)$ Controllers/tareasController.php?id_tarea=$1 [L]
 
 #Usuarios
 RewriteRule ^usuarios$ Controllers/usuariosController.php [L]
+
+#Sesiones
+RewriteRule ^sesiones$ Controllers/sesionesController.php [L]
