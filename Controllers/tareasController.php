@@ -100,7 +100,102 @@ else if(array_key_exists("id_tarea", $_GET)){
         exit();
     }
 
-    if($_SERVER['REQUEST_METHOD'] === 'PATCH'){
+    if($_SERVER['REQUEST_METHOD'] === 'GET') {
+        try {
+        
+            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE id = :id');
+            $query->bindParam(':id', $id_tarea, PDO::PARAM_INT);
+            $query->execute();
+
+            $rowCount = $query->rowCount();
+
+            if($rowCount === 0) {
+                $response = new Response();
+                $response->setHttpStatusCode(404);
+                $response->setSuccess(false);
+                $response->addMessage("No se encontró la tarea");
+                $response->send();
+                exit();
+            }
+
+            while($row = $query->fetch(PDO::FETCH_ASSOC)){
+                $tarea = new Tarea($row['id'], $row['titulo'], $row['descripcion'], $row['fecha_limite'], $row['completada'], $row['categoria_id']);
+            
+                $tareas[] = $tarea->getArray();
+            }
+
+            $returnData = array();
+            $returnData['total_registros'] = $rowCount;
+            $returnData['tareas'] = $tareas;
+
+            $response = new Response();
+            $response->setHttpStatusCode(200);
+            $response->setSuccess(true);
+            $response->setToCache(true);
+            $response->setData($returnData);
+            $response->send();
+            exit();
+        }
+        catch (TareaException $e) {
+            $response = new Response();
+        
+            $response->setHttpStatusCode(500);
+            $response->setSuccess(false);
+            $response->addMessage($e->getMessage());
+            $response->send();
+            exit();
+        }
+        catch (PDOException $e) {
+            error_log("Error en DB - " . $ex, 0);
+        
+            $response = new Response();
+        
+            $response->setHttpStatusCode(500);
+            $response->setSuccess(false);
+            $response->addMessage("Error al obtener tarea");
+            $response->send();
+            exit();
+        }
+    }
+    elseif($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+        try {
+            $query = $connection->prepare('DELETE FROM tareas WHERE id = :id');
+            $query->bindParam(':id', $id_tarea, PDO::PARAM_INT);
+            $query->execute();
+
+            $rowCount = $query->rowCount();
+
+            if ($rowCount === 0) {
+                $response = new Response();
+        
+                $response->setHttpStatusCode(404);
+                $response->setSuccess(false);
+                $response->addMessage("Tarea no encontrada");
+                $response->send();
+                exit();
+            }
+
+            $response = new Response();
+        
+            $response->setHttpStatusCode(200);
+            $response->setSuccess(true);
+            $response->addMessage("Tarea eliminada");
+            $response->send();
+            exit();
+        }
+        catch (PDOException $e) {
+            error_log("Error en DB - ".$e, 0);
+        
+            $response = new Response();
+        
+            $response->setHttpStatusCode(500);
+            $response->setSuccess(false);
+            $response->addMessage("Error al eliminar tarea");
+            $response->send();
+            exit();
+        }
+    }
+    elseif($_SERVER['REQUEST_METHOD'] === 'PATCH'){
         try {
             if ($_SERVER['CONTENT_TYPE'] !== 'application/json'){
                 $response = new Response();
