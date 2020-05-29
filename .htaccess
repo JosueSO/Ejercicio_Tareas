@@ -2,6 +2,8 @@ php_flag display_errors on
 
 RewriteEngine On
 
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME} !-f
 
@@ -18,3 +20,4 @@ RewriteRule ^usuarios$ Controllers/usuariosController.php [L]
 
 #Sesiones
 RewriteRule ^sesiones$ Controllers/sesionesController.php [L]
+RewriteRule ^sesiones/([0-9]+)$ Controllers/sesionesController.php?id_sesion=$1 [L]

@@ -18,6 +18,71 @@ catch (PDOException $e){
     exit();
 }
 
+//Verificación token
+
+if (!isset($_SERVER['HTTP_AUTHORIZATION']) || strlen($_SERVER['HTTP_AUTHORIZATION']) < 1) {
+    $response = new Response();
+    $response->setHttpStatusCode(401);
+    $response->setSuccess(false);
+    $response->addMessage("No se encontró el token de acceso");
+    $response->send();
+    exit();
+}
+
+$accesstoken = $_SERVER['HTTP_AUTHORIZATION']; 
+
+try {
+    $query = $connection->prepare('SELECT id_usuario, caducidad_token_acceso, activo FROM sesiones, usuarios WHERE sesiones.id_usuario = usuarios.id AND token_acceso = :token_acceso');
+    $query->bindParam(':token_acceso', $accesstoken, PDO::PARAM_STR);
+    $query->execute();
+
+    $rowCount = $query->rowCount();
+
+    if ($rowCount === 0) {
+        $response = new Response();
+        $response->setHttpStatusCode(401);
+        $response->setSuccess(false);
+        $response->addMessage("Token de acceso no válido");
+        $response->send();
+        exit();
+    }
+
+    $row = $query->fetch(PDO::FETCH_ASSOC);
+
+    $consulta_idUsuario = $row['id_usuario'];
+    $consulta_cadTokenAcceso = $row['caducidad_token_acceso'];
+    $consulta_activo = $row['activo'];
+
+    if($consulta_activo !== 'SI') {
+        $response = new Response();
+        $response->setHttpStatusCode(401);
+        $response->setSuccess(false);
+        $response->addMessage("Cuenta de usuario no activa");
+        $response->send();
+        exit();
+    }
+
+    if (strtotime($consulta_cadTokenAcceso) < time()) {
+        $response = new Response();
+        $response->setHttpStatusCode(401);
+        $response->setSuccess(false);
+        $response->addMessage("Token de acceso ha caducado");
+        $response->send();
+        exit();
+    }
+} 
+catch (PDOException $e) {
+    error_log('Error en DB - ' . $e);
+
+    $response = new Response();
+    $response->setHttpStatusCode(500);
+    $response->setSuccess(false);
+    $response->addMessage("Error al autenticar usuario");
+    $response->send();
+    exit();
+}
+//
+
 if (array_key_exists("categoria_id", $_GET)) {
     //GET host/tareas/categoria_id={id}
     if($_SERVER['REQUEST_METHOD'] === 'GET')
@@ -34,8 +99,9 @@ if (array_key_exists("categoria_id", $_GET)) {
         }
 
         try {
-            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE categoria_id = :categoria_id');
+            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE categoria_id = :categoria_id AND usuario_id = :usuario_id');
             $query->bindParam(':categoria_id', $categoria_id, PDO::PARAM_INT);
+            $query->bindParam(':usuario_id', $consulta_idUsuario, PDO::PARAM_INT);
             $query->execute();
 
             $rowCount = $query->rowCount();
@@ -103,7 +169,7 @@ else if(array_key_exists("id_tarea", $_GET)){
     if($_SERVER['REQUEST_METHOD'] === 'GET') {
         try {
         
-            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE id = :id');
+            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE id = :id AND usuario_id = :usuario_id');
             $query->bindParam(':id', $id_tarea, PDO::PARAM_INT);
             $query->execute();
 
@@ -159,8 +225,9 @@ else if(array_key_exists("id_tarea", $_GET)){
     }
     elseif($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         try {
-            $query = $connection->prepare('DELETE FROM tareas WHERE id = :id');
+            $query = $connection->prepare('DELETE FROM tareas WHERE id = :id AND usuario_id = :usuario_id');
             $query->bindParam(':id', $id_tarea, PDO::PARAM_INT);
+            $query->bindParam(':usuario_id', $consulta_idUsuario, PDO::PARAM_INT);
             $query->execute();
 
             $rowCount = $query->rowCount();
@@ -261,8 +328,9 @@ else if(array_key_exists("id_tarea", $_GET)){
                 exit();
             }
 
-            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE id = :id');
+            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE id = :id AND usuario_id = :usuario_id');
             $query->bindParam(':id', $id_tarea, PDO::PARAM_INT);
+            $query->bindParam(':usuario_id', $consulta_idUsuario, PDO::PARAM_INT);
             $query->execute();
 
             $rowCount = $query->rowCount();
@@ -280,7 +348,7 @@ else if(array_key_exists("id_tarea", $_GET)){
                 $tarea = new Tarea($row['id'], $row['titulo'], $row['descripcion'], $row['fecha_limite'], $row['completada'], $row['categoria_id']);
             }
 
-            $cadena_query = 'UPDATE tareas SET ' . $campos_query . ' WHERE id = :id';
+            $cadena_query = 'UPDATE tareas SET ' . $campos_query . ' WHERE id = :id AND usuario_id = :usuario_id';
             $query = $connection->prepare($cadena_query);
 
             if($actualiza_titulo === true) {
@@ -314,6 +382,7 @@ else if(array_key_exists("id_tarea", $_GET)){
             }
 
             $query->bindParam(':id', $id_tarea, PDO::PARAM_INT);
+            $query->bindParam(':usuario_id', $consulta_idUsuario, PDO::PARAM_INT);
             $query->execute();
 
             $rowCount = $query->rowCount();
@@ -327,8 +396,9 @@ else if(array_key_exists("id_tarea", $_GET)){
                 exit();
             }
 
-            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE id = :id');
+            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE id = :id AND usuario_id = :usuario_id');
             $query->bindParam(':id', $id_tarea, PDO::PARAM_INT);
+            $query->bindParam(':usuario_id', $consulta_idUsuario, PDO::PARAM_INT);
             $query->execute();
 
             $rowCount = $query->rowCount();
@@ -395,7 +465,8 @@ elseif (empty($_GET)) {
     if($_SERVER['REQUEST_METHOD'] === 'GET')
     {
         try {
-            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas');
+            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE usuario_id = :usuario_id');
+            $query->bindParam(':usuario_id', $consulta_idUsuario, PDO::PARAM_INT);
             $query->execute();
 
             $rowCount = $query->rowCount();
@@ -487,12 +558,13 @@ elseif (empty($_GET)) {
             $completada = $tarea->getCompletada();
             $categoria_id = $tarea->getCategoriaID();
 
-            $query = $connection->prepare('INSERT INTO tareas (titulo, descripcion, fecha_limite, completada, categoria_id) VALUES (:titulo, :descripcion, STR_TO_DATE(:fecha_limite, \'%Y-%m-%d %H:%i\'), :completada, :categoria_id)');
+            $query = $connection->prepare('INSERT INTO tareas (titulo, descripcion, fecha_limite, completada, categoria_id, usuario_id) VALUES (:titulo, :descripcion, STR_TO_DATE(:fecha_limite, \'%Y-%m-%d %H:%i\'), :completada, :categoria_id, :usuario_id)');
             $query->bindParam(':titulo', $titulo, PDO::PARAM_STR);
             $query->bindParam(':descripcion', $descripcion, PDO::PARAM_STR);
             $query->bindParam(':fecha_limite', $fecha_limite, PDO::PARAM_STR);
             $query->bindParam(':completada', $completada, PDO::PARAM_STR);
             $query->bindParam(':categoria_id', $categoria_id, PDO::PARAM_INT);
+            $query->bindParam(':usuario_id', $consulta_idUsuario, PDO::PARAM_INT);
             $query->execute();
 
             $rowCount = $query->rowCount();
@@ -508,8 +580,9 @@ elseif (empty($_GET)) {
 
             $ultimo_ID = $connection->lastInsertId();
 
-            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE id = :id');
+            $query = $connection->prepare('SELECT id, titulo, descripcion, DATE_FORMAT(fecha_limite, "%Y-%m-%d %H:%i") fecha_limite, completada, categoria_id FROM tareas WHERE id = :id AND usuario_id = :usuario_id');
             $query->bindParam(':id', $ultimo_ID, PDO::PARAM_INT);
+            $query->bindParam(':usuario_id', $consulta_idUsuario, PDO::PARAM_INT);
             $query->execute();
 
             $rowCount = $query->rowCount();
